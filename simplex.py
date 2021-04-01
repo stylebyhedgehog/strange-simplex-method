@@ -1,21 +1,28 @@
 import numpy as np
+import copy
 
 # A = np.array([[0, 1, 0, 2, 0], 
 #     [1, 0, 2, -1, 0],
 #     [0, 0, -1, -2, 1]], dtype=float)
 # B= np.array([4, 4, 6], dtype=float)
 # C= np.array([2,-1,3,-10,1])
-A = np.array([[30, 40, 20, 10], 
-    [10, 50, 40, 30],
-    [40, 10, 10, 20]], dtype=float)
-B= np.array([7000, 6000, 4000], dtype=float)
-C= np.array([-800,-900,-600,-700])
+# A = np.array([[30, 40, 20, 10], 
+#     [10, 50, 40, 30],
+#     [40, 10, 10, 20]], dtype=float)
+# B= np.array([6800, 6000, 4000], dtype=float)
+# C= np.array([-800,-900,-600,-700])
+A = np.array([[3, 8], 
+    [2,1],
+    [-1,1]], dtype=float)
+B= np.array([24, 8, 2], dtype=float)
+C= np.array([-4,-3])
 
 class Simplex():
-  
+
   def __init__(self, A, B, C): 
         self.A=A
         self.B=B
+        self.primary_B=copy.copy(B)
         self.C=C
         self.m=A.shape[0]
         self.n=A.shape[1]
@@ -44,14 +51,18 @@ class Simplex():
   def add_basis(self):
     self.c_basis=[]
     self.basis_indices= []
-    minside=min(self.n, self.m)
+    self.primary_basis_indices=[]
+    minside=self.m
     identity_matrix = np.eye(minside)
     self.A=np.hstack((self.A, identity_matrix))
     self.C=np.hstack((self.C, np.zeros(minside)))
     for i in range(minside):
       self.n=self.n+1
       self.basis_indices.append(self.n-1)
+      self.primary_basis_indices.append(self.n-1)
       self.c_basis.append(0)
+      #save
+    
       
   # Оценки
   def get_evaluation(self):
@@ -107,14 +118,56 @@ class Simplex():
       x[self.basis_indices[i]]=self.B[i]
     return x[:self.primary_n]
 
+
+
   def forward(self):
     self.add_basis()
     self.get_evaluation()
-    print(self.evaluation_list)
     while (max(self.evaluation_list[1:])>0):
       self.recalculating_table()
       self.get_evaluation()
     print(self.set_x(), "x")
     print(self.evaluation_list[0],"f(x)")
+    print("-------------------")
+    self.sens_analysis()
+
+  def sens_analysis(self):
+    resalted_Basix=[]
+    for i in self.primary_basis_indices:
+      resalted_Basix.append((self.A[:,i]).tolist())
+    resalted_Basix=np.array(resalted_Basix)
+
+    delta_b=[]
+    for j in range(self.m):
+      delta_b.append((resalted_Basix[j]*self.primary_B).sum())
+    delta_b=np.array(delta_b)
+    for k in range(delta_b.size):
+      left=resalted_Basix[:,k]
+      right=delta_b
+      self.normalization(left, right,k)
+
+  def normalization(self,left, right,indx):
+    right=-right
+    mensh_ravno=[]
+    bolsh_ravno=[]
+    for i in range(left.size):
+     
+      if (left[i]<0):
+        left[i]=-left[i]
+        mensh_ravno.append(-right[i]/left[i])
+      elif (left[i]>0):
+        bolsh_ravno.append(right[i]/left[i])
+      else:
+        print()
+  
+    min_mensh_ravno=float('{:.3f}'.format(min(mensh_ravno)))
+    max_bolsh_ravno=float('{:.3f}'.format(max(bolsh_ravno)))
+    if(max_bolsh_ravno<min_mensh_ravno):
+      print(max_bolsh_ravno, "<=delta<=",min_mensh_ravno)
+      print(max_bolsh_ravno+self.primary_B[indx], "<=b",indx+1,"<=",min_mensh_ravno+self.primary_B[indx])
+      print("----------")
+
+
+
 smpl= Simplex(A,B,C)
 smpl.forward()
