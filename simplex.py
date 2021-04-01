@@ -1,13 +1,15 @@
 import numpy as np
 
-A = np.array([[0, 1, 0, 2, 0], 
-    [1, 0, 2, -1, 0],
-    [0, 0, -1, -2, 1]], dtype=float)
-B= np.array([4, 4, 6], dtype=float)
-C= np.array([2,-1,3,-10,1])
-size=A.shape
-m=size[0]
-n=size[1]
+# A = np.array([[0, 1, 0, 2, 0], 
+#     [1, 0, 2, -1, 0],
+#     [0, 0, -1, -2, 1]], dtype=float)
+# B= np.array([4, 4, 6], dtype=float)
+# C= np.array([2,-1,3,-10,1])
+A = np.array([[30, 40, 20, 10], 
+    [10, 50, 40, 30],
+    [40, 10, 10, 20]], dtype=float)
+B= np.array([7000, 6000, 4000], dtype=float)
+C= np.array([-800,-900,-600,-700])
 
 class Simplex():
   
@@ -17,27 +19,40 @@ class Simplex():
         self.C=C
         self.m=A.shape[0]
         self.n=A.shape[1]
+        self.primary_n=self.n
+# Если на вход канон вид
 
-  # индексы базисных векторов
-  def get_basis_indices(self):
-    identity_matrix = np.eye(min(self.n, self.m), dtype=int)
-    self.basis_indices= []
-    for j in range(self.m):
-      identity_matrix_column=identity_matrix[:,j]
-      for i in range(self.n):
-        current_matrix_column=A[:,i]
-        if (np.array_equal(identity_matrix_column, current_matrix_column)):
-          self.basis_indices.append(i)
+  # # индексы базисных векторов
+  # def get_basis_indices(self):
+  #   identity_matrix = np.eye(min(self.n, self.m), dtype=int)
+  #   self.basis_indices= []
+  #   for j in range(self.m):
+  #     identity_matrix_column=identity_matrix[:,j]
+  #     for i in range(self.n):
+  #       current_matrix_column=A[:,i]
+  #       if (np.array_equal(identity_matrix_column, current_matrix_column)):
+  #         self.basis_indices.append(i)
     
 
-  # C баз
-  def get_c_basis(self):
+  # # C баз
+  # def get_c_basis(self):
+  #   self.c_basis=[]
+  #   for k in self.basis_indices:
+  #     c_basis_element=self.C[k]
+  #     self.c_basis.append(c_basis_element)
+
+  def add_basis(self):
     self.c_basis=[]
-    for k in self.basis_indices:
-      c_basis_element=self.C[k]
-      self.c_basis.append(c_basis_element)
-
-
+    self.basis_indices= []
+    minside=min(self.n, self.m)
+    identity_matrix = np.eye(minside)
+    self.A=np.hstack((self.A, identity_matrix))
+    self.C=np.hstack((self.C, np.zeros(minside)))
+    for i in range(minside):
+      self.n=self.n+1
+      self.basis_indices.append(self.n-1)
+      self.c_basis.append(0)
+      
   # Оценки
   def get_evaluation(self):
     self.evaluation_list=[]
@@ -72,28 +87,30 @@ class Simplex():
     self.basis_indices[ind_row] = ind_col
     self.c_basis[ind_row] = self.C[ind_col]
     # Пересчет ведущей стоки
-    new_row=np.divide(A[ind_row , :], A[ind_row , ind_col])
-    B[ind_row]=B[ind_row]/A[ind_row , ind_col]
-    A[ind_row]=new_row
+    new_row=np.divide(self.A[ind_row , :], self.A[ind_row , ind_col])
+    self.B[ind_row]=self.B[ind_row]/self.A[ind_row , ind_col]
+    self.A[ind_row]=new_row
     # Пересчет остальных строк
-    for i in range(m):
+    for i in range(self.m):
       if i !=ind_row :
-        mnozh=(-A[i,ind_col])/A[ind_row , ind_col]
-        new_b=B[ind_row]*mnozh+B[i]
-        new_row=np.multiply(A[ind_row],mnozh)+A[i]
-        A[i]=new_row
-        B[i]=new_b
+        mnozh=(-self.A[i,ind_col])/self.A[ind_row , ind_col]
+        new_b=self.B[ind_row]*mnozh+self.B[i]
+        new_row=np.multiply(self.A[ind_row],mnozh)+self.A[i]
+        self.A[i]=new_row
+        self.B[i]=new_b
 
   def set_x(self):
     x=np.zeros(self.n)
-    for i in self.basis_indices:
-      x[i]=self.B[self.basis_indices.index(i)]
-    return x
+    # for i in self.basis_indices:
+    #   x[i]=self.B[self.basis_indices.index(i)]
+    for i in range(self.m):
+      x[self.basis_indices[i]]=self.B[i]
+    return x[:self.primary_n]
 
   def forward(self):
-    self.get_basis_indices()
-    self.get_c_basis()
+    self.add_basis()
     self.get_evaluation()
+    print(self.evaluation_list)
     while (max(self.evaluation_list[1:])>0):
       self.recalculating_table()
       self.get_evaluation()
