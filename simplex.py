@@ -2,11 +2,16 @@ import numpy as np
 import copy
 import math
 
-A = np.array([[3, 8],
-              [2, 1],
-              [-1, 1]], dtype=float)
-B = np.array([24, 8, 2], dtype=float)
-C = np.array([4, 3])
+# A = np.array([[3, 8],
+#               [2, 1],
+#               [-1, 1]], dtype=float)
+# B = np.array([24, 8, 2], dtype=float)
+# C = np.array([4, 3])
+A = np.array([[30, 40, 20, 10],
+              [10, 50, 40, 30],
+              [40, 10, 10, 20]], dtype=float)
+B = np.array([7000, 6000, 4000], dtype=float)
+C = np.array([800, 900, 800, 700])
 
 
 class Simplex:
@@ -17,7 +22,7 @@ class Simplex:
         self.A = A
         self.B = B
         # постановка задачи на максимум а реализация на минимум
-        self.C = (-1) * C
+        self.C = -C
         self.m = A.shape[0]
         self.n = A.shape[1]
         self.primary_B = copy.copy(B)
@@ -68,7 +73,7 @@ class Simplex:
 
     # тетта
     def get_theta(self, vector):
-        theta = self.B[0] / vector[0]
+        theta = 999999999
         theta_index = 0
         if (self.key_k != 0):
             for i in range(vector.size):
@@ -160,7 +165,7 @@ class Simplex:
 
 
 class SensAnalysis:
-    def __init__(self, primary_basis_indices, res_A, m, primary_A, primary_B, primary_C):
+    def __init__(self, primary_basis_indices, res_A, m, primary_A, primary_B, primary_C, iteration_count_sa3=10):
         self.primary_basis_indices = primary_basis_indices
         # последняя A после прогона симплекс метода
         self.res_A = res_A
@@ -168,42 +173,44 @@ class SensAnalysis:
         self.primary_B = primary_B
         self.primary_C = primary_C
         self.m = m
-        self.res_Basis= self.get_res_Basis()
+        self.res_Basis = self.get_res_Basis()
+        # количество итераций для 3 шага анализа
+        self.iteration_count_sa3 = iteration_count_sa3
 
     # Столбцы A, прошедшего симпл метод, соответствующие первичному базису
     def get_res_Basis(self):
-      res_Basis = []
-      for i in self.primary_basis_indices:
-          res_Basis.append((self.res_A[:, i]).tolist())
-      res_Basis = np.transpose(np.array(res_Basis))
-      return res_Basis
+        res_Basis = []
+        for i in self.primary_basis_indices:
+            res_Basis.append((self.res_A[:, i]).tolist())
+        res_Basis = np.transpose(np.array(res_Basis))
+        return res_Basis
 
-    # Поиск допустимых значений
+    # Поиск допустимых значений B
     def sens_analysis_1(self):
         delta_b = []
         for j in range(self.m):
             delta_b.append((self.res_Basis[j] * self.primary_B).sum())
         delta_b = np.array(delta_b)
-        left_confines, right_confines = [] , []
+        # Массивы левых и правых ограничений для каждого b
+        self.left_confines, self.right_confines = [], []
         for k in range(delta_b.size):
             left = self.res_Basis[:, k]
             right = delta_b
-            self.normalization(left, right, k, left_confines, right_confines)
+            right = -right
+            mensh_ravno = []
+            bolsh_ravno = []
+            for i in range(left.size):
+                if (left[i] < 0):
+                    mensh_ravno.append((right[i] / left[i]))
+                elif (left[i] > 0):
+                    bolsh_ravno.append(right[i] / left[i])
+                else:
+                    None
 
-        return left_confines, right_confines
+            self.normalization_inequality(mensh_ravno, bolsh_ravno, k)
 
-    def normalization(self, left, right, indx, left_confines, right_confines):
-        right = -right
-        mensh_ravno = []
-        bolsh_ravno = []
-        for i in range(left.size):
-            if (left[i] < 0):
-                mensh_ravno.append((right[i] / left[i]))
-            elif (left[i] > 0):
-                bolsh_ravno.append(right[i] / left[i])
-            else:
-                None
-
+    # Нормализуем вывод неравенств и выводим
+    def normalization_inequality(self, mensh_ravno, bolsh_ravno, indx):
         if mensh_ravno:
             min_mensh_ravno = float('{:.3f}'.format(min(mensh_ravno) + self.primary_B[indx]))
         else:
@@ -215,23 +222,39 @@ class SensAnalysis:
 
         if ((type(max_bolsh_ravno) is str or type(min_mensh_ravno) is str) or max_bolsh_ravno < min_mensh_ravno):
             # print(max_bolsh_ravno, "<=delta<=",min_mensh_ravno)
-            left_confines.append(max_bolsh_ravno)
-            right_confines.append(min_mensh_ravno)
+            self.left_confines.append(max_bolsh_ravno)
+            self.right_confines.append(min_mensh_ravno)
             print(max_bolsh_ravno, "<=b", indx + 1, "<=", min_mensh_ravno)
         else:
-            left_confines.append("не изменимо")
-            right_confines.append("не изменимо")
+            self.left_confines.append("не изменимо")
+            self.right_confines.append("не изменимо")
 
-    def sens_analysis_2(self, left_confines, right_confines):
+    def get_max_values(self, simplex_result, vector_B_or_Coef, simplex_x, k):
+        if simplex_result:
+            max_value = max(simplex_result)
+            max_result_index = simplex_result.index(max_value)
+            B_or_Coef_with_max_value = vector_B_or_Coef[max_result_index]
+            x_with_max_value = simplex_x[max_result_index]
+            print(max_value, "f(x)")
+            print(x_with_max_value, "x")
+            if k == 2:
+                print(B_or_Coef_with_max_value, "B")
+            elif k == 3:
+                print(B_or_Coef_with_max_value, "coef")
+            else:
+                None
+        else:
+            print("текущее решение не улучшить")
+
+    # Поиск наилучшего значения в пределах допустимых значений B
+    def sens_analysis_2(self):
         simplex_x = []
         simplex_result = []
         vector_b = []
         for z in range(self.m):
-
-            if (left_confines[z] != "не ограничено" and left_confines[z] != "не изменимо"
-                    and right_confines[z] != "не ограничено" and right_confines[z] != "не изменимо"):
-
-                for d in range(math.ceil(left_confines[z]), math.floor(right_confines[z])):
+            if (self.left_confines[z] != "не ограничено" and self.left_confines[z] != "не изменимо" and
+                    self.right_confines[z] != "не ограничено" and self.right_confines[z] != "не изменимо"):
+                for d in range(math.ceil(self.left_confines[z]), math.floor(self.right_confines[z])):
                     new_B = copy.copy(self.primary_B)
                     new_B[z] = d
                     primary_new_B = copy.copy(new_B)
@@ -240,17 +263,10 @@ class SensAnalysis:
                     simplex_x.append(x)
                     vector_b.append(primary_new_B.tolist())
                     simplex_result.append(y)
-        if simplex_result:
-            max_value = max(simplex_result)
-            max_index = simplex_result.index(max_value)
-            b_with_max_value = vector_b[max_index]
-            x_with_max_value = simplex_x[max_index]
-            print(max_value, "f(x)")
-            print(x_with_max_value, "x")
-            print(b_with_max_value, "b")
-        else:
-            print("текущее решение не улучшить")
 
+        self.get_max_values(simplex_result, vector_b, simplex_x, 2)
+
+    # Поиск наилучшего значения за пределами допустимых значений B
     def get_coefficient_b(self, new_B):
         test = []
         for j in range(self.m):
@@ -258,52 +274,44 @@ class SensAnalysis:
 
         return np.array(test)
 
-    def sens_analysis_3(self, left_confines, right_confines):
+    def sens_analysis_3(self):
         simplex_x = []
         simplex_result = []
-        vector_b = []
-
+        vector_coef = []
+        # проходим по всем ограничениям
         for z in range(self.m):
-            if (left_confines[z] != "не ограничено" and left_confines[z] != "не изменимо" and right_confines[
-                z] != "не ограничено" and right_confines[z] != "не изменимо"):
-                new_B = copy.copy(self.primary_B)
-                new_B[z] = round(left_confines[z]) - 1
-                new_B = self.get_coefficient_b(new_B)
-                smpl = Simplex(self.res_A, new_B, np.hstack((self.primary_C, np.zeros(self.m))), 1)
-                x, y = smpl.forward_only_result()
-                simplex_x.append(x)
-                vector_b.append(new_B.tolist())
-                simplex_result.append(y)
+            if (self.left_confines[z] != "не ограничено" and self.left_confines[z] != "не изменимо" and
+                    self.right_confines[z] != "не ограничено" and self.right_confines[z] != "не изменимо"):
+                for iteration in range(1, self.iteration_count_sa3):
+                    new_B = copy.copy(self.primary_B)
+                    new_B[z] = round(self.left_confines[z]) - iteration
+                    new_B = self.get_coefficient_b(new_B)
+                    smpl = Simplex(self.res_A, new_B, np.hstack((self.primary_C, np.zeros(self.m))), 1)
+                    x, y = smpl.forward_only_result()
+                    simplex_x.append(x)
+                    vector_coef.append(new_B.tolist())
+                    simplex_result.append(y)
+                for iteration in range(1, self.iteration_count_sa3):
+                    new_B1 = copy.copy(self.primary_B)
+                    new_B1[z] = round(self.right_confines[z]) + iteration
+                    new_B1 = self.get_coefficient_b(new_B1)
+                    smpl = Simplex(self.res_A, new_B1, np.hstack((self.primary_C, np.zeros(self.m))), 1)
+                    x, y = smpl.forward_only_result()
+                    simplex_x.append(x)
+                    vector_coef.append(new_B1.tolist())
+                    simplex_result.append(y)
 
-                new_B1 = copy.copy(self.primary_B)
-                new_B1[z] = round(right_confines[z]) + 1
-                new_B1 = self.get_coefficient_b(new_B1)
-                smpl = Simplex(self.res_A, new_B1, np.hstack((self.primary_C, np.zeros(self.m))), 1)
-                x, y = smpl.forward_only_result()
-                simplex_x.append(x)
-                vector_b.append(new_B1.tolist())
-                simplex_result.append(y)
-
-        if simplex_result:
-            max_value = max(simplex_result)
-            max_index = simplex_result.index(max_value)
-            coef_with_max_value = vector_b[max_index]
-            x_with_max_value = simplex_x[max_index]
-            print(max_value, "f(x)")
-            print(x_with_max_value, "x")
-            print(coef_with_max_value, "coef")
-        else:
-            print("текущее решение не улучшить")
+        self.get_max_values(simplex_result, vector_coef, simplex_x, 3)
 
     def forward_sens_analysis(self):
         print("Анализ на чувствительность: ")
         print("(1) Интервал допустимых значений ограничений запасов удобрений: ")
-        left_confines, right_confines = self.sens_analysis_1()
+        self.sens_analysis_1()
         print("(2) Максимальное значение целевой функции при изменении ограничений в допустимом диапазоне: ")
-        self.sens_analysis_2(left_confines, right_confines)
+        self.sens_analysis_2()
         print(
             "(3) Максимальное значение целевой функции при изменении ограничений в диапазоне за пределами допустимого: ")
-        self.sens_analysis_3(left_confines, right_confines)
+        self.sens_analysis_3()
 
 
 primary_A = copy.copy(A)
