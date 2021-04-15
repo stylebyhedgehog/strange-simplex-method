@@ -7,16 +7,21 @@ import math
 #     [0, 0, -1, -2, 1]], dtype=float)
 # B= np.array([4, 4, 6], dtype=float)
 # C= np.array([2,-1,3,-10,1])
-A = np.array([[12, 11, 13, 15], 
-    [2, 5, 4, 3],
-    [4, 13, 1, 2]], dtype=float)
-B= np.array([44, 14, 21], dtype=float)
-C= np.array([4, 5, 6, 7])
-# A = np.array([[3, 8],
-#               [2, 1],
-#               [-1, 1]], dtype=float)
-# B = np.array([24, 8, 2], dtype=float)
-# C = np.array([4, 3])
+# A = np.array([[12, 11, 13, 15], 
+#     [2, 5, 4, 3],
+#     [4, 13, 1, 2]], dtype=float)
+# B= np.array([44, 14, 21], dtype=float)
+# C= np.array([4, 5, 6, 7])
+# A = np.array([[30, 40, 20, 10], 
+#     [10, 50, 40, 30],
+#     [40, 10, 10, 20]], dtype=float)
+# B= np.array([7000, 6000, 4000], dtype=float)
+# C= np.array([800,900,800,700])
+A = np.array([[3, 8],
+              [2, 1],
+              [-1, 1]], dtype=float)
+B = np.array([24, 8, 2], dtype=float)
+C = np.array([4, 3])
 
 
 class Simplex:
@@ -184,7 +189,7 @@ class SensAnalysis:
       resalted_Basix = []
       for i in self.primary_basis_indices:
           resalted_Basix.append((self.res_A[:, i]).tolist())
-      resalted_Basix = np.array(resalted_Basix)
+      resalted_Basix = np.transpose(np.array(resalted_Basix))
       delta_b = []
       for j in range(self.m):
           delta_b.append((resalted_Basix[j] * self.primary_B).sum())
@@ -195,16 +200,16 @@ class SensAnalysis:
           left = resalted_Basix[:, k]
           right = delta_b
           self.normalization(left, right, k,left_confines,right_confines)
+   
       return left_confines, right_confines , resalted_Basix
 
   def normalization(self, left, right, indx, left_confines, right_confines):
-        right = -right
+        right = (-1)*right
         mensh_ravno = []
         bolsh_ravno = []
         for i in range(left.size):
             if (left[i] < 0):
-                left[i] = -left[i]
-                mensh_ravno.append(-right[i] / left[i])
+                mensh_ravno.append((right[i] / left[i]))
             elif (left[i] > 0):
                 bolsh_ravno.append(right[i] / left[i])
             else:
@@ -240,10 +245,11 @@ class SensAnalysis:
           for d in range(math.ceil(left_confines[z]), math.floor(right_confines[z])):
             new_B=copy.copy(self.primary_B)
             new_B[z]=d
+            primary_new_B=copy.copy(new_B)
             smpl=Simplex(self.primary_A, new_B, self.primary_C)
             x , y = smpl.forward_only_result()
             simplex_x.append(x)
-            vector_b.append(new_B.tolist())
+            vector_b.append(primary_new_B.tolist())
             simplex_result.append(y)
       if simplex_result:
         max_value=max(simplex_result)
@@ -261,6 +267,7 @@ class SensAnalysis:
       test=[]
       for j in range(self.m):
         test.append((resalted_Basix[j] * new_B).sum())
+  
       return np.array(test)
 
   def sens_analysis_3(self, left_confines, right_confines, resalted_Basix):
@@ -281,7 +288,7 @@ class SensAnalysis:
 
           new_B1=copy.copy(self.primary_B)
           new_B1[z]=round(right_confines[z])+1
-          new_B=self.get_coefficient_b(new_B, resalted_Basix)
+          new_B1=self.get_coefficient_b(new_B1, resalted_Basix)
           smpl=Simplex(self.res_A, new_B1, np.hstack((self.primary_C, np.zeros(self.m))),1)
           x , y = smpl.forward_only_result()
           simplex_x.append(x)
@@ -295,7 +302,7 @@ class SensAnalysis:
         x_with_max_value=simplex_x[max_index]
         print(max_value, "f(x)")
         print(x_with_max_value, "x")
-        print(b_with_max_value, "b")
+        print(b_with_max_value, "coef")
       else:
         print("текущее решение не улучшить")
 
@@ -311,11 +318,11 @@ class SensAnalysis:
       print("(3) Максимальное значение целевой функции при изменении ограничений в диапазоне за пределами допустимого: ")
       self.sens_analysis_3(left_confines, right_confines, resalted_Basix)
      
-
-smpl = Simplex(A, B, C)
 primary_A=copy.copy(A)
 primary_B=copy.copy(B)
 primary_C=copy.copy(C)
+smpl = Simplex(A, B, C)
+
 
 primary_basis_indices, res_A, m=smpl.forward_simplex()
 
