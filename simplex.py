@@ -235,12 +235,12 @@ class SensAnalysis:
             max_result_index = simplex_result.index(max_value)
             B_or_Coef_with_max_value = vector_B_or_Coef[max_result_index]
             x_with_max_value = simplex_x[max_result_index]
-            print(max_value, "f(x)")
-            print(x_with_max_value, "x")
+            print("f(x) - ", max_value)
+            print("x - ", x_with_max_value)
             if k == 2:
-                print(B_or_Coef_with_max_value, "B")
+                print("B - ", B_or_Coef_with_max_value)
             elif k == 3:
-                print(B_or_Coef_with_max_value, "coef")
+                print("coef - ", B_or_Coef_with_max_value)
             else:
                 None
         else:
@@ -314,13 +314,27 @@ class SensAnalysis:
         self.sens_analysis_3()
 
 
-primary_A = copy.copy(A)
-primary_B = copy.copy(B)
-primary_C = copy.copy(C)
-smpl = Simplex(A, B, C)
+def get_data_from_json():
+    import json
+    with open('data.json') as json_file:
+        data = json.load(json_file)
+        a = data['a']
+        b = data['b']
+        c = data['c']
+    return np.array(a, dtype=float) , np.array(b, dtype=float), np.array(c, dtype=float)
 
-primary_basis_indices, res_A, m = smpl.forward_simplex()
 
-sens_a = SensAnalysis(primary_basis_indices, res_A, m, primary_A, primary_B, primary_C)
-sens_a.forward_sens_analysis()
+if __name__ == '__main__':
+    A, B, C = get_data_from_json()
+    primary_A = copy.copy(A)
+    primary_B = copy.copy(B)
+    primary_C = copy.copy(C)
+    smpl = Simplex(A, B, C)
+
+    primary_basis_indices, res_A, m = smpl.forward_simplex()
+
+    sens_a = SensAnalysis(primary_basis_indices, res_A, m, primary_A, primary_B, primary_C)
+    sens_a.forward_sens_analysis()
+
+
 
