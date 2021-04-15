@@ -1,12 +1,9 @@
 import numpy as np
 import copy
 import math
+import time
+from scipy.optimize import linprog
 
-# A = np.array([[3, 8],
-#               [2, 1],
-#               [-1, 1]], dtype=float)
-# B = np.array([24, 8, 2], dtype=float)
-# C = np.array([4, 3])
 A = np.array([[30, 40, 20, 10],
               [10, 50, 40, 30],
               [40, 10, 10, 20]], dtype=float)
@@ -323,14 +320,38 @@ def get_data_from_json():
         c = data['c']
     return np.array(a, dtype=float) , np.array(b, dtype=float), np.array(c, dtype=float)
 
+ # сравнение с линпрогом
+def comparision_with_linprog(A,B,C):
+    A_in = copy.copy(A)
+    B_in = copy.copy(B)
+    C_in = copy.copy(C)
+
+    print("~" * 20, "Linprog ", "~" * 20)
+    start_time = time.time()
+    res = linprog(-C_in, A_in, B_in)
+    print(res.x, " - x")
+    print(res.fun, " - f(x)")
+    print("Время выполнения", (time.time() - start_time))
+    print("~" * 55)
+
+    print("~"*15, "Собственная реализация", "~"*15)
+    start_time = time.time()
+    smpl = Simplex(A_in, B_in, C_in)
+    x, y = smpl.forward_only_result()
+    print(x, " - x")
+    print(y, " - f(x)")
+    print("Время выполнения", (time.time() - start_time))
+    print("~" * 55)
+
 
 if __name__ == '__main__':
     A, B, C = get_data_from_json()
     primary_A = copy.copy(A)
     primary_B = copy.copy(B)
     primary_C = copy.copy(C)
-    smpl = Simplex(A, B, C)
+    comparision_with_linprog(A, B, C)
 
+    smpl = Simplex(A, B, C)
     primary_basis_indices, res_A, m = smpl.forward_simplex()
 
     sens_a = SensAnalysis(primary_basis_indices, res_A, m, primary_A, primary_B, primary_C)
